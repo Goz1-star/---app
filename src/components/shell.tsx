@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { switchRoleAction } from "@/lib/actions-auth";
 import { ButtonLink } from "@/components/ui";
 
 const adminLinks = [
@@ -32,7 +33,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
-          <ButtonLink href="/admin/login" variant="secondary">切换账号</ButtonLink>
+          <div className="flex items-center gap-2">
+            <form action={switchRoleAction.bind(null, "student")}>
+              <button className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                切换为学员
+              </button>
+            </form>
+            <ButtonLink href="/admin/login" variant="secondary">切换账号</ButtonLink>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
@@ -53,7 +61,14 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
-          <ButtonLink href="/student/login" variant="secondary">切换账号</ButtonLink>
+          <div className="flex items-center gap-2">
+            <form action={switchRoleAction.bind(null, "admin")}>
+              <button className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                切换为管理员
+              </button>
+            </form>
+            <ButtonLink href="/student/login" variant="secondary">切换账号</ButtonLink>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
