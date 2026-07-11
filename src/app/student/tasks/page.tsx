@@ -6,6 +6,19 @@ import { db } from "@/lib/db";
 import { formatFileSize } from "@/lib/files";
 import { formatDate } from "@/lib/utils";
 
+const githubSyncStatusMap: Record<string, { label: string; className: string }> = {
+  not_requested: { label: "未请求", className: "bg-slate-100 text-slate-600" },
+  pending: { label: "同步中", className: "bg-amber-50 text-amber-700" },
+  success: { label: "已同步", className: "bg-emerald-50 text-emerald-700" },
+  failed: { label: "同步失败", className: "bg-red-50 text-red-700" },
+  skipped: { label: "已跳过", className: "bg-slate-100 text-slate-600" },
+};
+
+function GitHubSyncBadge({ status }: { status: string }) {
+  const item = githubSyncStatusMap[status] ?? { label: status, className: "bg-slate-100 text-slate-600" };
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.className}`}>{item.label}</span>;
+}
+
 export default async function StudentTasksPage() {
   const session = await requireRole("student");
   const tasks = await db.task.findMany({
@@ -45,7 +58,21 @@ export default async function StudentTasksPage() {
                   <div key={submission.id} className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
                     <p>{formatDate(submission.createdAt)} · {submission.status} · {submission.score ?? "未评分"}</p>
                     {submission.feedback ? <p className="mt-1">反馈：{submission.feedback}</p> : null}
-                    {submission.githubUrl ? <p className="mt-1">GitHub：{submission.githubUrl}</p> : null}
+                    {submission.githubUrl ? <p className="mt-1 break-all">学员 GitHub 链接：{submission.githubUrl}</p> : null}
+                    {submission.githubEnabled || submission.githubSyncStatus !== "not_requested" ? (
+                      <div className="mt-2 rounded-2xl bg-white p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-slate-900">GitHub 同步</span>
+                          <GitHubSyncBadge status={submission.githubSyncStatus} />
+                        </div>
+                        {submission.githubSyncMessage ? <p className="mt-1">{submission.githubSyncMessage}</p> : null}
+                        {submission.githubSyncUrl ? (
+                          <p className="mt-1 break-all">
+                            系统写入链接：<a href={submission.githubSyncUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand-700">{submission.githubSyncUrl}</a>
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {submission.files.map((file) => (
                       <p key={file.id} className="mt-1">
                         附件：{file.originalName} · {formatFileSize(file.size)}

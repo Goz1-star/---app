@@ -3,6 +3,7 @@ import { Card } from "@/components/ui";
 import { saveSystemSettingAction } from "@/lib/actions";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { GITHUB_CONFIG_SECTION, parseGitHubConfig } from "@/lib/settings";
 
 const DEFAULTS = {
   basic_info: {
@@ -59,6 +60,8 @@ export default async function AdminSettingsPage() {
   const basic = parseSetting("basic_info", bySection.basic_info);
   const operation = parseSetting("operation_rules", bySection.operation_rules);
   const upload = parseSetting("upload_rules", bySection.upload_rules);
+  const github = parseGitHubConfig(bySection[GITHUB_CONFIG_SECTION]);
+  const tokenConfigured = Boolean(process.env.GITHUB_TOKEN);
 
   return (
     <AdminShell>
@@ -97,6 +100,34 @@ export default async function AdminSettingsPage() {
             <TextArea name="previewRule" label="代码预览说明" defaultValue={upload.previewRule} />
             <TextArea name="githubRule" label="GitHub 规则" defaultValue={upload.githubRule} />
             <button className="rounded-2xl bg-brand-600 px-4 py-3 font-semibold text-white">保存上传规则</button>
+          </form>
+        </Card>
+
+        <Card>
+          <h2 className="text-xl font-bold text-slate-950">GitHub 写入配置</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Token 状态：
+            <span className={tokenConfigured ? "font-semibold text-emerald-700" : "font-semibold text-red-600"}>
+              {tokenConfigured ? "已配置" : "未配置"}
+            </span>
+            ，请在 .env 中配置 GITHUB_TOKEN。
+          </p>
+          <form action={saveSystemSettingAction} className="mt-4 grid gap-3">
+            <input type="hidden" name="section" value={GITHUB_CONFIG_SECTION} />
+            <TextInput name="repoUrl" label="仓库地址" defaultValue={github.repoUrl} />
+            <div className="grid gap-3 md:grid-cols-2">
+              <TextInput name="owner" label="仓库 Owner" defaultValue={github.owner} />
+              <TextInput name="repo" label="仓库名称" defaultValue={github.repo} />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <TextInput name="branch" label="默认分支" defaultValue={github.branch} />
+              <TextInput name="baseDir" label="基础目录（可选）" defaultValue={github.baseDir} />
+            </div>
+            <label className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+              <input name="syncEnabled" type="checkbox" defaultChecked={github.syncEnabled === "true"} />
+              启用任务代码文件自动写入 GitHub
+            </label>
+            <button className="rounded-2xl bg-brand-600 px-4 py-3 font-semibold text-white">保存 GitHub 配置</button>
           </form>
         </Card>
       </div>

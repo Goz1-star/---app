@@ -84,6 +84,31 @@ async function main() {
   await ensureRole("admin", "管理员", "室长或被授权的工作室管理员");
   await ensureRole("student", "普通室员", "参与学习、任务、打卡和测试的工作室成员");
 
+  await prisma.systemSetting.upsert({
+    where: { section: "github_config" },
+    update: {
+      valueJson: JSON.stringify({
+        repoUrl: "https://github.com/Goz1-star/-.git",
+        owner: "Goz1-star",
+        repo: "-",
+        branch: "main",
+        baseDir: "",
+        syncEnabled: "false",
+      }),
+    },
+    create: {
+      section: "github_config",
+      valueJson: JSON.stringify({
+        repoUrl: "https://github.com/Goz1-star/-.git",
+        owner: "Goz1-star",
+        repo: "-",
+        branch: "main",
+        baseDir: "",
+        syncEnabled: "false",
+      }),
+    },
+  });
+
   const admin = await ensureUser({
     name: "室长管理员",
     phone: "18800000001",

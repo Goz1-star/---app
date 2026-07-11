@@ -168,9 +168,15 @@ model TaskSubmission {
   taskId        String
   userId        String
   content       String?
-  githubUrl     String?
-  githubEnabled Boolean      @default(false)
-  score         Int?
+  githubUrl           String?
+  githubEnabled       Boolean      @default(false)
+  githubSyncStatus    String       @default("not_requested")
+  githubSyncMessage   String?
+  githubSyncPath      String?
+  githubSyncUrl       String?
+  githubLastAttemptAt DateTime?
+  githubSyncedAt      DateTime?
+  score               Int?
   feedback      String?
   status        String       @default("submitted")
   createdAt     DateTime     @default(now())

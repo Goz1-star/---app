@@ -1,11 +1,14 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import type { UploadFile } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { saveUploadFile } from "@/lib/files";
+import { syncSubmissionFileToGitHub, type GitHubSyncResult } from "@/lib/github";
+import { GITHUB_CONFIG_SECTION, normalizeGitHubConfig } from "@/lib/settings";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -67,6 +70,33 @@ function settingPayload(formData: FormData, fields: string[]) {
   return Object.fromEntries(fields.map((field) => [field, value(formData, field)]));
 }
 
+function systemSettingPayload(section: string, formData: FormData, fields: string[]) {
+  const payload = settingPayload(formData, fields);
+  if (section === GITHUB_CONFIG_SECTION) {
+    return normalizeGitHubConfig({ ...payload, syncEnabled: formData.get("syncEnabled") === "on" ? "true" : "false" });
+  }
+  return payload;
+}
+
+function githubSyncUpdate(result: GitHubSyncResult) {
+  const now = new Date();
+  return {
+    githubSyncStatus: result.status,
+    githubSyncMessage: result.message,
+    githubSyncPath: result.path ?? null,
+    githubSyncUrl: result.url ?? null,
+    githubLastAttemptAt: now,
+    githubSyncedAt: result.status === "success" ? now : null,
+  };
+}
+
+async function saveGitHubSyncResult(submissionId: string, result: GitHubSyncResult) {
+  await db.taskSubmission.update({
+    where: { id: submissionId },
+    data: githubSyncUpdate(result),
+  });
+}
+
 function optionalDate(raw: string) {
   return raw ? new Date(raw) : null;
 }
@@ -102,18 +132,20 @@ export async function saveSystemSettingAction(formData: FormData) {
     basic_info: ["studioName", "studioIntro", "contact"],
     operation_rules: ["activitySignupRule", "reviewRule", "pointsRule"],
     upload_rules: ["supportedFileTypes", "codeFileLimit", "previewRule", "githubRule"],
+    [GITHUB_CONFIG_SECTION]: ["repoUrl", "owner", "repo", "branch", "baseDir", "syncEnabled"],
   };
   const fields = fieldsBySection[section] ?? [];
+  const payload = systemSettingPayload(section, formData, fields);
 
   await db.systemSetting.upsert({
     where: { section },
     update: {
-      valueJson: JSON.stringify(settingPayload(formData, fields)),
+      valueJson: JSON.stringify(payload),
       updatedById: session.userId,
     },
     create: {
       section,
-      valueJson: JSON.stringify(settingPayload(formData, fields)),
+      valueJson: JSON.stringify(payload),
       updatedById: session.userId,
     },
   });
@@ -461,25 +493,82 @@ export async function createTaskAction(formData: FormData) {
 
 export async function submitTaskAction(formData: FormData) {
   const session = await requireRole("student");
+  const githubEnabled = formData.get("githubEnabled") === "on";
   const submission = await db.taskSubmission.create({
     data: {
       taskId: value(formData, "taskId"),
       userId: session.userId,
       content: value(formData, "content"),
       githubUrl: value(formData, "githubUrl") || null,
-      githubEnabled: formData.get("githubEnabled") === "on",
+      githubEnabled,
+      githubSyncStatus: githubEnabled ? "pending" : "not_requested",
     },
+    include: { task: true, user: true },
   });
 
+  const uploadedFiles: UploadFile[] = [];
   const files = formData.getAll("files");
   for (const file of files) {
     if (file instanceof File) {
-      await saveUploadFile({ file, bucket: "submissions", ownerId: submission.id, submissionId: submission.id });
+      const upload = await saveUploadFile({ file, bucket: "submissions", ownerId: submission.id, submissionId: submission.id });
+      if (upload) uploadedFiles.push(upload);
+    }
+  }
+
+  if (githubEnabled) {
+    const codeFile = uploadedFiles.find((file) => file.category === "code" || file.previewable);
+    if (!uploadedFiles.length) {
+      await saveGitHubSyncResult(submission.id, { status: "skipped", message: "未上传代码文件" });
+    } else if (!codeFile) {
+      await saveGitHubSyncResult(submission.id, { status: "skipped", message: "仅代码文件支持自动写入 GitHub" });
+    } else {
+      const result = await syncSubmissionFileToGitHub({
+        submissionId: submission.id,
+        taskTitle: submission.task.title,
+        studentName: submission.user.name,
+        fileName: codeFile.originalName,
+        storagePath: codeFile.storagePath,
+      });
+      await saveGitHubSyncResult(submission.id, result);
     }
   }
 
   revalidatePath("/student/tasks");
   revalidatePath("/admin/tasks");
+}
+
+export async function retrySubmissionGitHubSyncAction(formData: FormData) {
+  await requireRole("admin");
+  const submission = await db.taskSubmission.findUnique({
+    where: { id: value(formData, "id") },
+    include: { task: true, user: true, files: true },
+  });
+  if (!submission) return;
+
+  const codeFile = submission.files.find((file) => file.category === "code" || file.previewable);
+  if (!codeFile) {
+    await saveGitHubSyncResult(submission.id, { status: "skipped", message: "没有可同步的代码文件" });
+    revalidatePath("/admin/tasks");
+    revalidatePath("/student/tasks");
+    return;
+  }
+
+  await db.taskSubmission.update({
+    where: { id: submission.id },
+    data: { githubSyncStatus: "pending", githubSyncMessage: "正在重新同步 GitHub", githubLastAttemptAt: new Date() },
+  });
+
+  const result = await syncSubmissionFileToGitHub({
+    submissionId: submission.id,
+    taskTitle: submission.task.title,
+    studentName: submission.user.name,
+    fileName: codeFile.originalName,
+    storagePath: codeFile.storagePath,
+  });
+  await saveGitHubSyncResult(submission.id, result);
+
+  revalidatePath("/admin/tasks");
+  revalidatePath("/student/tasks");
 }
 
 export async function reviewSubmissionAction(formData: FormData) {

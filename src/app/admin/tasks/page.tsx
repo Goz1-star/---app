@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/shell";
 import { Card } from "@/components/ui";
-import { createTaskAction, reviewSubmissionAction, updateTaskAction } from "@/lib/actions";
+import { createTaskAction, retrySubmissionGitHubSyncAction, reviewSubmissionAction, updateTaskAction } from "@/lib/actions";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatFileSize } from "@/lib/files";
@@ -10,6 +10,23 @@ const taskStatusMap: Record<string, string> = {
   published: "可提交",
   archived: "已归档",
 };
+
+const githubSyncStatusMap: Record<string, { label: string; className: string }> = {
+  not_requested: { label: "未请求", className: "bg-slate-100 text-slate-600" },
+  pending: { label: "同步中", className: "bg-amber-50 text-amber-700" },
+  success: { label: "已同步", className: "bg-emerald-50 text-emerald-700" },
+  failed: { label: "同步失败", className: "bg-red-50 text-red-700" },
+  skipped: { label: "已跳过", className: "bg-slate-100 text-slate-600" },
+};
+
+function GitHubSyncBadge({ status }: { status: string }) {
+  const item = githubSyncStatusMap[status] ?? { label: status, className: "bg-slate-100 text-slate-600" };
+  return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${item.className}`}>{item.label}</span>;
+}
+
+function canRetryGitHubSync(status: string, enabled: boolean) {
+  return enabled || ["failed", "skipped", "pending"].includes(status);
+}
 
 export default async function AdminTasksPage() {
   await requireRole("admin");
@@ -64,7 +81,29 @@ export default async function AdminTasksPage() {
                         <p className="text-sm font-semibold text-brand-700">{submission.score ?? "未评分"}</p>
                       </div>
                       <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{submission.content}</p>
-                      {submission.githubUrl ? <p className="mt-2 text-sm text-slate-600">GitHub：{submission.githubUrl} {submission.githubEnabled ? "（选择写入/关联）" : ""}</p> : null}
+                      {submission.githubUrl ? <p className="mt-2 text-sm text-slate-600">学员 GitHub 链接：{submission.githubUrl} {submission.githubEnabled ? "（选择写入/关联）" : ""}</p> : null}
+                      <div className="mt-3 rounded-2xl bg-white p-3 text-sm text-slate-600">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-slate-900">GitHub 同步状态</span>
+                          <GitHubSyncBadge status={submission.githubSyncStatus} />
+                        </div>
+                        {submission.githubSyncMessage ? <p className="mt-2">说明：{submission.githubSyncMessage}</p> : null}
+                        {submission.githubSyncPath ? <p className="mt-1 break-all">路径：{submission.githubSyncPath}</p> : null}
+                        {submission.githubSyncUrl ? (
+                          <p className="mt-1 break-all">
+                            系统写入链接：<a href={submission.githubSyncUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand-700">{submission.githubSyncUrl}</a>
+                          </p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-slate-500">
+                          最近尝试：{formatDate(submission.githubLastAttemptAt)} · 成功同步：{formatDate(submission.githubSyncedAt)}
+                        </p>
+                        {canRetryGitHubSync(submission.githubSyncStatus, submission.githubEnabled) ? (
+                          <form action={retrySubmissionGitHubSyncAction} className="mt-3">
+                            <input type="hidden" name="id" value={submission.id} />
+                            <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">重试 GitHub 同步</button>
+                          </form>
+                        ) : null}
+                      </div>
                       {submission.files.map((file) => (
                         <div key={file.id} className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-3 text-sm text-slate-500">
                           <span>附件：{file.originalName} · {formatFileSize(file.size)} · {file.previewable ? "可预览" : "不可预览"}</span>
