@@ -2,6 +2,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
@@ -45,6 +46,110 @@ async function saveSubmissionFile(file: File, submissionId: string) {
       submissionId,
     },
   });
+}
+
+function parseOptions(raw: string) {
+  return raw
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeAnswer(type: string, raw: string) {
+  if (type === "multiple") {
+    return raw
+      .split(/[,，\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .sort()
+      .join("|");
+  }
+  return raw.trim();
+}
+
+function isAnswerCorrect(type: string, expected: string | null, actual: string) {
+  if (!expected) return false;
+  return normalizeAnswer(type, expected) === normalizeAnswer(type, actual);
+}
+
+export async function createMaterialAction(formData: FormData) {
+  const session = await requireRole("admin");
+  await db.material.create({
+    data: {
+      title: value(formData, "title"),
+      description: value(formData, "description") || null,
+      category: value(formData, "category") || "未分类",
+      url: value(formData, "url") || null,
+      uploaderId: session.userId,
+    },
+  });
+  revalidatePath("/admin/materials");
+  revalidatePath("/student/materials");
+}
+
+export async function createQuizAction(formData: FormData) {
+  await requireRole("admin");
+  await db.quiz.create({
+    data: {
+      title: value(formData, "title"),
+      description: value(formData, "description") || null,
+    },
+  });
+  revalidatePath("/admin/quizzes");
+  revalidatePath("/student/quizzes");
+}
+
+export async function createQuizQuestionAction(formData: FormData) {
+  await requireRole("admin");
+  const type = value(formData, "type");
+  const options = parseOptions(value(formData, "options"));
+  await db.quizQuestion.create({
+    data: {
+      quizId: value(formData, "quizId"),
+      type,
+      title: value(formData, "title"),
+      options: options.length ? JSON.stringify(options) : null,
+      answer: value(formData, "answer") || null,
+      points: Number(value(formData, "points") || 1),
+    },
+  });
+  revalidatePath("/admin/quizzes");
+  revalidatePath(`/student/quizzes/${value(formData, "quizId")}`);
+}
+
+export async function submitQuizAttemptAction(formData: FormData) {
+  const session = await requireRole("student");
+  const quizId = value(formData, "quizId");
+  const questions = await db.quizQuestion.findMany({ where: { quizId } });
+
+  let score = 0;
+  const answers = questions.map((question) => {
+    const key = `question_${question.id}`;
+    const answer = question.type === "multiple" ? formData.getAll(key).map(String).join("|") : value(formData, key);
+    const autoGradable = question.type !== "short";
+    const earned = autoGradable && isAnswerCorrect(question.type, question.answer, answer) ? question.points : 0;
+    score += earned;
+    return {
+      questionId: question.id,
+      answer,
+      score: autoGradable ? earned : null,
+    };
+  });
+
+  await db.quizAttempt.create({
+    data: {
+      quizId,
+      userId: session.userId,
+      score,
+      status: "submitted",
+      answers: { create: answers },
+    },
+  });
+
+  revalidatePath("/student/quizzes");
+  revalidatePath(`/student/quizzes/${quizId}`);
+  revalidatePath("/admin/quizzes");
+  redirect("/student/quizzes");
 }
 
 export async function createAnnouncementAction(formData: FormData) {

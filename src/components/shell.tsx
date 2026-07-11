@@ -8,6 +8,8 @@ const adminLinks = [
   ["公告", "/admin/announcements"],
   ["课程/活动", "/admin/activities"],
   ["任务提交", "/admin/tasks"],
+  ["资料仓库", "/admin/materials"],
+  ["小测试", "/admin/quizzes"],
   ["Excel 导出", "/admin/export"],
 ];
 
@@ -17,6 +19,8 @@ const studentLinks = [
   ["课程/活动", "/student/activities"],
   ["打卡", "/student/checkins"],
   ["任务", "/student/tasks"],
+  ["资料", "/student/materials"],
+  ["小测试", "/student/quizzes"],
   ["榜单", "/student/rankings"],
 ];
 

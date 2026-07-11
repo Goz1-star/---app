@@ -172,6 +172,25 @@ async function main() {
     ],
   });
 
+  await prisma.material.createMany({
+    data: [
+      {
+        title: "React 官方文档",
+        description: "组件、状态、Hooks 等前端基础学习资料。",
+        category: "前端",
+        url: "https://react.dev/",
+        uploaderId: admin.id,
+      },
+      {
+        title: "GitHub 入门指南",
+        description: "学习仓库、分支、提交和 Pull Request 的基本用法。",
+        category: "工程化",
+        url: "https://docs.github.com/zh/get-started",
+        uploaderId: admin.id,
+      },
+    ],
+  });
+
   const quiz = await prisma.quiz.create({
     data: {
       title: "JavaScript 阶段小测试",
@@ -179,6 +198,7 @@ async function main() {
       questions: {
         create: [
           { type: "single", title: "React 中用于保存组件状态的 Hook 是？", options: JSON.stringify(["useState", "useMemo", "useRef"]), answer: "useState", points: 5 },
+          { type: "multiple", title: "以下哪些属于常见前端技术？", options: JSON.stringify(["HTML", "CSS", "MySQL", "JavaScript"]), answer: "CSS|HTML|JavaScript", points: 5 },
           { type: "truefalse", title: "TypeScript 是 JavaScript 的超集。", answer: "true", points: 5 },
           { type: "short", title: "简单说明 Git 分支的作用。", points: 10 },
         ],
