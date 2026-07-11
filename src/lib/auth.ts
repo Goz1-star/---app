@@ -74,6 +74,22 @@ export async function logout() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
+export async function switchActiveRole(targetRole: ActiveRole) {
+  const session = await getCurrentSession();
+  if (!session) return { ok: false, message: "请先登录" };
+
+  const hasRole = session.user.roles.some((item) => item.role.key === targetRole);
+  if (!hasRole) {
+    return { ok: false, message: targetRole === "admin" ? "当前账号没有管理员身份" : "当前账号没有学员身份" };
+  }
+
+  await db.session.update({
+    where: { id: session.id },
+    data: { activeRole: targetRole },
+  });
+  return { ok: true };
+}
+
 export async function loginWithPassword(phone: string, password: string, role: ActiveRole) {
   const user = await db.user.findUnique({
     where: { phone },

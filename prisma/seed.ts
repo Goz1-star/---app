@@ -84,6 +84,31 @@ async function main() {
   await ensureRole("admin", "管理员", "室长或被授权的工作室管理员");
   await ensureRole("student", "普通室员", "参与学习、任务、打卡和测试的工作室成员");
 
+  await prisma.systemSetting.upsert({
+    where: { section: "github_config" },
+    update: {
+      valueJson: JSON.stringify({
+        repoUrl: "https://github.com/Goz1-star/-.git",
+        owner: "Goz1-star",
+        repo: "-",
+        branch: "main",
+        baseDir: "",
+        syncEnabled: "false",
+      }),
+    },
+    create: {
+      section: "github_config",
+      valueJson: JSON.stringify({
+        repoUrl: "https://github.com/Goz1-star/-.git",
+        owner: "Goz1-star",
+        repo: "-",
+        branch: "main",
+        baseDir: "",
+        syncEnabled: "false",
+      }),
+    },
+  });
+
   const admin = await ensureUser({
     name: "室长管理员",
     phone: "18800000001",
@@ -172,6 +197,25 @@ async function main() {
     ],
   });
 
+  await prisma.material.createMany({
+    data: [
+      {
+        title: "React 官方文档",
+        description: "组件、状态、Hooks 等前端基础学习资料。",
+        category: "前端",
+        url: "https://react.dev/",
+        uploaderId: admin.id,
+      },
+      {
+        title: "GitHub 入门指南",
+        description: "学习仓库、分支、提交和 Pull Request 的基本用法。",
+        category: "工程化",
+        url: "https://docs.github.com/zh/get-started",
+        uploaderId: admin.id,
+      },
+    ],
+  });
+
   const quiz = await prisma.quiz.create({
     data: {
       title: "JavaScript 阶段小测试",
@@ -179,6 +223,7 @@ async function main() {
       questions: {
         create: [
           { type: "single", title: "React 中用于保存组件状态的 Hook 是？", options: JSON.stringify(["useState", "useMemo", "useRef"]), answer: "useState", points: 5 },
+          { type: "multiple", title: "以下哪些属于常见前端技术？", options: JSON.stringify(["HTML", "CSS", "MySQL", "JavaScript"]), answer: "CSS|HTML|JavaScript", points: 5 },
           { type: "truefalse", title: "TypeScript 是 JavaScript 的超集。", answer: "true", points: 5 },
           { type: "short", title: "简单说明 Git 分支的作用。", points: 10 },
         ],

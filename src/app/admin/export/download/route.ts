@@ -52,6 +52,29 @@ export async function GET() {
   const submissions = await db.taskSubmission.findMany({ include: { task: true, user: true } });
   submissions.forEach((item) => submissionSheet.addRow({ task: item.task.title, name: item.user.name, github: item.githubUrl ?? "", status: item.status, score: item.score ?? "" }));
 
+  const quizSheet = workbook.addWorksheet("小测试成绩");
+  quizSheet.columns = [
+    { header: "测试", key: "quiz", width: 24 },
+    { header: "姓名", key: "name", width: 18 },
+    { header: "得分", key: "score", width: 12 },
+    { header: "状态", key: "status", width: 14 },
+    { header: "提交时间", key: "time", width: 24 },
+  ];
+  const quizAttempts = await db.quizAttempt.findMany({ include: { quiz: true, user: true }, orderBy: { createdAt: "desc" } });
+  quizAttempts.forEach((item) => quizSheet.addRow({ quiz: item.quiz.title, name: item.user.name, score: item.score ?? "", status: item.status, time: item.createdAt.toISOString() }));
+
+  const pointsSheet = workbook.addWorksheet("积分明细");
+  pointsSheet.columns = [
+    { header: "姓名", key: "name", width: 18 },
+    { header: "手机号", key: "phone", width: 18 },
+    { header: "积分变化", key: "points", width: 12 },
+    { header: "原因", key: "reason", width: 32 },
+    { header: "来源", key: "source", width: 16 },
+    { header: "时间", key: "time", width: 24 },
+  ];
+  const pointLedgers = await db.pointLedger.findMany({ include: { user: true }, orderBy: { createdAt: "desc" } });
+  pointLedgers.forEach((item) => pointsSheet.addRow({ name: item.user.name, phone: item.user.phone, points: item.points, reason: item.reason, source: item.source, time: item.createdAt.toISOString() }));
+
   const buffer = await workbook.xlsx.writeBuffer();
   return new NextResponse(buffer, {
     headers: {

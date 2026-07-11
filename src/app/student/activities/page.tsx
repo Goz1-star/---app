@@ -14,6 +14,7 @@ const statusMap: Record<string, string> = {
 export default async function StudentActivitiesPage() {
   const session = await requireRole("student");
   const activities = await db.activity.findMany({
+    where: { status: "published" },
     include: { signups: { where: { userId: session.userId } } },
     orderBy: { startAt: "asc" },
   });

@@ -1,12 +1,17 @@
 import Link from "next/link";
+import { switchRoleAction } from "@/lib/actions-auth";
 import { ButtonLink } from "@/components/ui";
 
 const adminLinks = [
   ["首页", "/admin"],
   ["成员", "/admin/members"],
+  ["积分", "/admin/points"],
   ["公告", "/admin/announcements"],
   ["课程/活动", "/admin/activities"],
   ["任务提交", "/admin/tasks"],
+  ["资料仓库", "/admin/materials"],
+  ["小测试", "/admin/quizzes"],
+  ["设置", "/admin/settings"],
   ["Excel 导出", "/admin/export"],
 ];
 
@@ -15,7 +20,10 @@ const studentLinks = [
   ["公告", "/student/announcements"],
   ["课程/活动", "/student/activities"],
   ["打卡", "/student/checkins"],
+  ["积分", "/student/points"],
   ["任务", "/student/tasks"],
+  ["资料", "/student/materials"],
+  ["小测试", "/student/quizzes"],
   ["榜单", "/student/rankings"],
 ];
 
@@ -32,7 +40,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
-          <ButtonLink href="/admin/login" variant="secondary">切换账号</ButtonLink>
+          <div className="flex items-center gap-2">
+            <form action={switchRoleAction.bind(null, "student")}>
+              <button className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                切换为学员
+              </button>
+            </form>
+            <ButtonLink href="/admin/login" variant="secondary">切换账号</ButtonLink>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
@@ -53,7 +68,14 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
-          <ButtonLink href="/student/login" variant="secondary">切换账号</ButtonLink>
+          <div className="flex items-center gap-2">
+            <form action={switchRoleAction.bind(null, "admin")}>
+              <button className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                切换为管理员
+              </button>
+            </form>
+            <ButtonLink href="/student/login" variant="secondary">切换账号</ButtonLink>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>

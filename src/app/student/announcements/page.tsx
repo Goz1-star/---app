@@ -6,7 +6,7 @@ import { formatDate } from "@/lib/utils";
 
 export default async function StudentAnnouncementsPage() {
   await requireRole("student");
-  const announcements = await db.announcement.findMany({ orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }] });
+  const announcements = await db.announcement.findMany({ where: { status: "published" }, orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }] });
 
   return (
     <StudentShell>

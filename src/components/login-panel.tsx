@@ -40,11 +40,15 @@ export function LoginPanel({ role, title, subtitle, error, sentPhone }: { role: 
               <input name="phone" defaultValue={sentPhone} placeholder="手机号" className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-brand-500" required />
               <button className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">获取</button>
             </form>
-            <form action={otpLoginAction.bind(null, role)} className="mt-3 grid gap-3">
-              <input name="phone" defaultValue={sentPhone} placeholder="手机号" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-brand-500" required />
-              <input name="code" placeholder="验证码，默认 123456" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-brand-500" required />
-              <button className="rounded-2xl bg-slate-950 px-4 py-3 font-semibold text-white hover:bg-slate-800">验证码登录</button>
-            </form>
+            {sentPhone ? (
+              <form action={otpLoginAction.bind(null, role)} className="mt-3 grid gap-3">
+                <input type="hidden" name="phone" value={sentPhone} />
+                <input name="code" placeholder="验证码，默认 123456" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-brand-500" required />
+                <button className="rounded-2xl bg-slate-950 px-4 py-3 font-semibold text-white hover:bg-slate-800">验证码登录</button>
+              </form>
+            ) : (
+              <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">先填写手机号并点击“获取”，再输入验证码 123456 登录。</p>
+            )}
           </div>
         </Card>
       </div>
