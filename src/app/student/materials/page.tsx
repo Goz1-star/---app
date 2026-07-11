@@ -5,14 +5,48 @@ import { db } from "@/lib/db";
 import { formatFileSize } from "@/lib/files";
 import { formatDate } from "@/lib/utils";
 
-export default async function StudentMaterialsPage() {
+export default async function StudentMaterialsPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; sort?: string }> }) {
   await requireRole("student");
-  const materials = await db.material.findMany({ include: { uploader: true, files: true }, orderBy: { createdAt: "desc" } });
+  const params = await searchParams;
+  const q = (params.q ?? "").trim();
+  const category = (params.category ?? "").trim();
+  const sort = params.sort === "oldest" ? "asc" : "desc";
+  const where = {
+    ...(category ? { category } : {}),
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q } },
+            { description: { contains: q } },
+            { category: { contains: q } },
+          ],
+        }
+      : {}),
+  };
+  const [materials, categories] = await Promise.all([
+    db.material.findMany({ where, include: { uploader: true, files: true }, orderBy: { createdAt: sort } }),
+    db.material.findMany({ select: { category: true }, distinct: ["category"], orderBy: { category: "asc" } }),
+  ]);
 
   return (
     <StudentShell>
       <h1 className="text-3xl font-black text-slate-950">资料仓库</h1>
       <p className="mt-2 text-slate-600">查看工作室沉淀的课程资料、学习链接和项目参考内容。</p>
+      <form className="mt-6 grid gap-3 rounded-3xl border border-white/80 bg-white/80 p-4 shadow-soft md:grid-cols-[1fr_180px_140px_auto]">
+        <input name="q" defaultValue={q} placeholder="搜索标题、说明或分类" className="rounded-2xl border border-slate-200 px-4 py-3" />
+        <select name="category" defaultValue={category} className="rounded-2xl border border-slate-200 px-4 py-3">
+          <option value="">全部分类</option>
+          {categories.map((item) => (
+            <option key={item.category} value={item.category}>{item.category}</option>
+          ))}
+        </select>
+        <select name="sort" defaultValue={params.sort ?? "newest"} className="rounded-2xl border border-slate-200 px-4 py-3">
+          <option value="newest">最新优先</option>
+          <option value="oldest">最早优先</option>
+        </select>
+        <button className="rounded-2xl bg-slate-950 px-5 py-3 font-semibold text-white">筛选</button>
+      </form>
+      <div className="mt-4 text-sm text-slate-500">共找到 {materials.length} 条资料</div>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {materials.map((item) => (
           <Card key={item.id}>

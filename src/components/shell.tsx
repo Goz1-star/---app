@@ -11,6 +11,7 @@ const adminLinks = [
   ["任务提交", "/admin/tasks"],
   ["资料仓库", "/admin/materials"],
   ["小测试", "/admin/quizzes"],
+  ["设置", "/admin/settings"],
   ["Excel 导出", "/admin/export"],
 ];
 

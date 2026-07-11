@@ -16,16 +16,51 @@ const activityStatusMap: Record<string, string> = {
   archived: "已下架",
 };
 
-export default async function AdminActivitiesPage() {
+export default async function AdminActivitiesPage({ searchParams }: { searchParams: Promise<{ q?: string; signupStatus?: string }> }) {
   await requireRole("admin");
+  const params = await searchParams;
+  const q = (params.q ?? "").trim();
+  const signupStatus = (params.signupStatus ?? "").trim();
+  const signupWhere = {
+    ...(signupStatus ? { status: signupStatus } : {}),
+    ...(q
+      ? {
+          OR: [
+            { reason: { contains: q } },
+            { user: { name: { contains: q } } },
+          ],
+        }
+      : {}),
+  };
+  const activityWhere = q
+    ? {
+        OR: [
+          { title: { contains: q } },
+          { description: { contains: q } },
+          { signups: { some: signupWhere } },
+        ],
+      }
+    : {};
   const activities = await db.activity.findMany({
-    include: { signups: { include: { user: true } } },
+    where: activityWhere,
+    include: { signups: { where: signupWhere, include: { user: true } } },
     orderBy: { createdAt: "desc" },
   });
 
   return (
     <AdminShell>
       <h1 className="text-3xl font-black text-slate-950">课程/活动管理</h1>
+      <form className="mt-6 grid gap-3 rounded-3xl border border-white/80 bg-white/80 p-4 shadow-soft md:grid-cols-[1fr_180px_auto]">
+        <input name="q" defaultValue={q} placeholder="搜索活动、学员或报名说明" className="rounded-2xl border border-slate-200 px-4 py-3" />
+        <select name="signupStatus" defaultValue={signupStatus} className="rounded-2xl border border-slate-200 px-4 py-3">
+          <option value="">全部报名状态</option>
+          <option value="pending">待审核</option>
+          <option value="approved">已通过</option>
+          <option value="rejected">已拒绝</option>
+        </select>
+        <button className="rounded-2xl bg-slate-950 px-5 py-3 font-semibold text-white">筛选</button>
+      </form>
+      <div className="mt-4 text-sm text-slate-500">共找到 {activities.length} 个课程/活动卡片</div>
       <div className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
         <Card>
           <h2 className="text-xl font-bold">创建课程/活动</h2>

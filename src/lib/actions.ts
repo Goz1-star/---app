@@ -63,6 +63,10 @@ async function applyPointChange(input: { userId: string; points: number; reason:
   ]);
 }
 
+function settingPayload(formData: FormData, fields: string[]) {
+  return Object.fromEntries(fields.map((field) => [field, value(formData, field)]));
+}
+
 function optionalDate(raw: string) {
   return raw ? new Date(raw) : null;
 }
@@ -89,6 +93,33 @@ function normalizeAnswer(type: string, raw: string) {
 function isAnswerCorrect(type: string, expected: string | null, actual: string) {
   if (!expected) return false;
   return normalizeAnswer(type, expected) === normalizeAnswer(type, actual);
+}
+
+export async function saveSystemSettingAction(formData: FormData) {
+  const session = await requireRole("admin");
+  const section = value(formData, "section");
+  const fieldsBySection: Record<string, string[]> = {
+    basic_info: ["studioName", "studioIntro", "contact"],
+    operation_rules: ["activitySignupRule", "reviewRule", "pointsRule"],
+    upload_rules: ["supportedFileTypes", "codeFileLimit", "previewRule", "githubRule"],
+  };
+  const fields = fieldsBySection[section] ?? [];
+
+  await db.systemSetting.upsert({
+    where: { section },
+    update: {
+      valueJson: JSON.stringify(settingPayload(formData, fields)),
+      updatedById: session.userId,
+    },
+    create: {
+      section,
+      valueJson: JSON.stringify(settingPayload(formData, fields)),
+      updatedById: session.userId,
+    },
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin");
 }
 
 export async function createMemberAction(formData: FormData) {
