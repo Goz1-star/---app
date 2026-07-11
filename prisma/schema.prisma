@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(cuid())
+  name           String
+  phone          String          @unique
+  email          String?         @unique
+  passwordHash   String
+  status         String          @default("active")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  roles          UserRole[]
+  sessions       Session[]
+  otpCodes       OtpCode[]
+  profile        MemberProfile?
+  announcements  Announcement[]  @relation("AnnouncementAuthor")
+  activities     Activity[]      @relation("ActivityCreator")
+  signups        ActivitySignup[]
+  checkins       Checkin[]
+  pointLedgers   PointLedger[]
+  tasksCreated   Task[]          @relation("TaskCreator")
+  submissions    TaskSubmission[]
+  materials      Material[]      @relation("MaterialUploader")
+  quizAttempts   QuizAttempt[]
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  key         String     @unique
+  name        String
+  description String?
+  users       UserRole[]
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  userId     String
+  activeRole String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  purpose   String   @default("login")
+  userId    String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model MemberProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  studentNo String?
+  grade     String?
+  major     String   @default("软件技术")
+  bio       String?
+  points    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  authorId  String
+  author    User     @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+}
+
+model Activity {
+  id          String           @id @default(cuid())
+  title       String
+  description String
+  startAt     DateTime
+  endAt       DateTime?
+  status      String           @default("published")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  creatorId   String
+  creator     User             @relation("ActivityCreator", fields: [creatorId], references: [id])
+  signups     ActivitySignup[]
+}
+
+model ActivitySignup {
+  id         String    @id @default(cuid())
+  activityId String
+  userId     String
+  status     String    @default("pending")
+  reason     String?
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
+  activity   Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, userId])
+}
+
+model Checkin {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String
+  photoPath     String?
+  durationMin   Int?
+  note          String?
+  isMakeup      Boolean  @default(false)
+  makeupReason  String?
+  checkedAt     DateTime @default(now())
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PointLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  points    Int
+  reason    String
+  source    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id          String           @id @default(cuid())
+  title       String
+  description String
+  dueAt       DateTime?
+  points      Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  creatorId   String
+  creator     User             @relation("TaskCreator", fields: [creatorId], references: [id])
+  submissions TaskSubmission[]
+}
+
+model TaskSubmission {
+  id            String       @id @default(cuid())
+  taskId        String
+  userId        String
+  content       String?
+  githubUrl     String?
+  githubEnabled Boolean      @default(false)
+  score         Int?
+  feedback      String?
+  status        String       @default("submitted")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  task          Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files         UploadFile[]
+}
+
+model UploadFile {
+  id           String          @id @default(cuid())
+  originalName String
+  storagePath  String
+  mimeType     String?
+  size         Int
+  category     String
+  previewable  Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  submissionId String?
+  submission   TaskSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+}
+
+model Material {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String
+  url         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  uploaderId  String
+  uploader    User     @relation("MaterialUploader", fields: [uploaderId], references: [id])
+}
+
+model Quiz {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  questions   QuizQuestion[]
+  attempts    QuizAttempt[]
+}
+
+model QuizQuestion {
+  id        String       @id @default(cuid())
+  quizId    String
+  type      String
+  title     String
+  options   String?
+  answer    String?
+  points    Int          @default(1)
+  quiz      Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers   QuizAnswer[]
+}
+
+model QuizAttempt {
+  id        String       @id @default(cuid())
+  quizId    String
+  userId    String
+  score     Int?
+  status    String       @default("submitted")
+  createdAt DateTime     @default(now())
+  quiz      Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers   QuizAnswer[]
+}
+
+model QuizAnswer {
+  id          String       @id @default(cuid())
+  attemptId   String
+  questionId  String
+  answer      String
+  score       Int?
+  attempt     QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}

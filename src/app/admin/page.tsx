@@ -1,0 +1,36 @@
+import { AdminShell } from "@/components/shell";
+import { StatCard, Card } from "@/components/ui";
+import { requireRole } from "@/lib/auth";
+import { db } from "@/lib/db";
+
+export default async function AdminPage() {
+  const session = await requireRole("admin");
+  const [members, announcements, pendingSignups, submissions, checkins] = await Promise.all([
+    db.memberProfile.count(),
+    db.announcement.count(),
+    db.activitySignup.count({ where: { status: "pending" } }),
+    db.taskSubmission.count(),
+    db.checkin.count(),
+  ]);
+
+  return (
+    <AdminShell>
+      <div className="mb-8">
+        <p className="text-sm font-semibold text-brand-700">欢迎回来，{session.user.name}</p>
+        <h1 className="mt-2 text-4xl font-black text-slate-950">管理员首页</h1>
+        <p className="mt-3 text-slate-600">Web 管理后台只给管理员使用，用于管理工作室日常运营。</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-5">
+        <StatCard label="室员数" value={members} />
+        <StatCard label="公告" value={announcements} />
+        <StatCard label="待审核报名" value={pendingSignups} />
+        <StatCard label="任务提交" value={submissions} />
+        <StatCard label="打卡记录" value={checkins} />
+      </div>
+      <Card className="mt-8">
+        <h2 className="text-xl font-bold text-slate-950">开发中的 MVP 模块</h2>
+        <p className="mt-2 text-slate-600">当前已搭建成员、公告、课程报名审核、任务提交、打卡、榜单和 Excel 导出入口。</p>
+      </Card>
+    </AdminShell>
+  );
+}
