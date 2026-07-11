@@ -3,6 +3,7 @@ import { Card } from "@/components/ui";
 import { submitTaskAction } from "@/lib/actions";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatFileSize } from "@/lib/files";
 import { formatDate } from "@/lib/utils";
 
 export default async function StudentTasksPage() {
@@ -31,7 +32,7 @@ export default async function StudentTasksPage() {
               <textarea name="content" rows={3} placeholder="提交说明" className="rounded-2xl border border-slate-200 px-4 py-3" />
               <input name="githubUrl" placeholder="GitHub 仓库链接（可选）" className="rounded-2xl border border-slate-200 px-4 py-3" />
               <label className="flex items-center gap-2 text-sm text-slate-600"><input name="githubEnabled" type="checkbox" /> 选择写入/关联 GitHub</label>
-              <input name="file" type="file" className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm" />
+              <input name="files" type="file" multiple className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm" />
               <p className="text-xs text-slate-500">代码文件最大 200MB；代码文件支持在线预览。</p>
               <button className="rounded-2xl bg-brand-600 px-4 py-3 font-semibold text-white">提交任务</button>
             </form>
@@ -43,7 +44,11 @@ export default async function StudentTasksPage() {
                     <p>{formatDate(submission.createdAt)} · {submission.status} · {submission.score ?? "未评分"}</p>
                     {submission.feedback ? <p className="mt-1">反馈：{submission.feedback}</p> : null}
                     {submission.githubUrl ? <p className="mt-1">GitHub：{submission.githubUrl}</p> : null}
-                    {submission.files.map((file) => <p key={file.id} className="mt-1">附件：{file.originalName}</p>)}
+                    {submission.files.map((file) => (
+                      <p key={file.id} className="mt-1">
+                        附件：{file.originalName} · {formatFileSize(file.size)}
+                      </p>
+                    ))}
                   </div>
                 ))}
               </div>

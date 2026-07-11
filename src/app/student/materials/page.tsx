@@ -2,11 +2,12 @@ import { StudentShell } from "@/components/shell";
 import { Card } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatFileSize } from "@/lib/files";
 import { formatDate } from "@/lib/utils";
 
 export default async function StudentMaterialsPage() {
   await requireRole("student");
-  const materials = await db.material.findMany({ include: { uploader: true }, orderBy: { createdAt: "desc" } });
+  const materials = await db.material.findMany({ include: { uploader: true, files: true }, orderBy: { createdAt: "desc" } });
 
   return (
     <StudentShell>
@@ -21,8 +22,21 @@ export default async function StudentMaterialsPage() {
             <p className="mt-3 text-xs text-slate-400">{item.uploader.name} · {formatDate(item.createdAt)}</p>
             {item.url ? (
               <a href={item.url} target="_blank" className="mt-5 inline-flex rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
-                打开资料
+                打开链接
               </a>
+            ) : null}
+            {item.files.length ? (
+              <div className="mt-4 space-y-2">
+                {item.files.map((file) => (
+                  <div key={file.id} className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">
+                    <p>{file.originalName} · {formatFileSize(file.size)}</p>
+                    <div className="mt-2 flex gap-3">
+                      {file.previewable ? <a href={`/student/files/${file.id}/preview`} className="font-semibold text-brand-700">预览</a> : null}
+                      <a href={`/api/files/${file.id}/download`} className="font-semibold text-slate-900">下载</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : null}
           </Card>
         ))}

@@ -1,51 +1,13 @@
 "use server";
 
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
+import { saveUploadFile } from "@/lib/files";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
-}
-
-function isCodeFile(fileName: string) {
-  return /\.(html|css|js|jsx|ts|tsx|vue|java|py|cpp|c|cs|go|rs|php|rb|md|json|xml|sql)$/i.test(fileName);
-}
-
-function safeFileName(fileName: string) {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
-
-async function saveSubmissionFile(file: File, submissionId: string) {
-  if (!file || file.size === 0) return;
-  const codeFile = isCodeFile(file.name);
-  const codeLimit = 200 * 1024 * 1024;
-  if (codeFile && file.size > codeLimit) {
-    throw new Error("代码文件不能超过 200MB");
-  }
-
-  const uploadRoot = process.env.UPLOAD_DIR ?? "./uploads";
-  const dir = path.join(process.cwd(), uploadRoot, submissionId);
-  await mkdir(dir, { recursive: true });
-  const fileName = `${Date.now()}-${safeFileName(file.name)}`;
-  const storagePath = path.join(dir, fileName);
-  const bytes = Buffer.from(await file.arrayBuffer());
-  await writeFile(storagePath, bytes);
-
-  await db.uploadFile.create({
-    data: {
-      originalName: file.name,
-      storagePath,
-      mimeType: file.type || null,
-      size: file.size,
-      category: codeFile ? "code" : "file",
-      previewable: codeFile,
-      submissionId,
-    },
-  });
 }
 
 function parseOptions(raw: string) {
@@ -74,7 +36,7 @@ function isAnswerCorrect(type: string, expected: string | null, actual: string) 
 
 export async function createMaterialAction(formData: FormData) {
   const session = await requireRole("admin");
-  await db.material.create({
+  const material = await db.material.create({
     data: {
       title: value(formData, "title"),
       description: value(formData, "description") || null,
@@ -83,6 +45,14 @@ export async function createMaterialAction(formData: FormData) {
       uploaderId: session.userId,
     },
   });
+
+  const files = formData.getAll("files");
+  for (const file of files) {
+    if (file instanceof File) {
+      await saveUploadFile({ file, bucket: "materials", ownerId: material.id, materialId: material.id });
+    }
+  }
+
   revalidatePath("/admin/materials");
   revalidatePath("/student/materials");
 }
@@ -251,9 +221,11 @@ export async function submitTaskAction(formData: FormData) {
     },
   });
 
-  const file = formData.get("file");
-  if (file instanceof File) {
-    await saveSubmissionFile(file, submission.id);
+  const files = formData.getAll("files");
+  for (const file of files) {
+    if (file instanceof File) {
+      await saveUploadFile({ file, bucket: "submissions", ownerId: submission.id, submissionId: submission.id });
+    }
   }
 
   revalidatePath("/student/tasks");

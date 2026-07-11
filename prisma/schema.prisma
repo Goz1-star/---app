@@ -189,18 +189,21 @@ model UploadFile {
   createdAt    DateTime        @default(now())
   submissionId String?
   submission   TaskSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  materialId   String?
+  material     Material?       @relation(fields: [materialId], references: [id], onDelete: Cascade)
 }
 
 model Material {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String?
   category    String
   url         String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   uploaderId  String
-  uploader    User     @relation("MaterialUploader", fields: [uploaderId], references: [id])
+  uploader    User         @relation("MaterialUploader", fields: [uploaderId], references: [id])
+  files       UploadFile[]
 }
 
 model Quiz {

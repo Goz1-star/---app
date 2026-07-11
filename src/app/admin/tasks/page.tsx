@@ -1,19 +1,10 @@
-import { readFile } from "node:fs/promises";
 import { AdminShell } from "@/components/shell";
 import { Card } from "@/components/ui";
 import { createTaskAction, reviewSubmissionAction } from "@/lib/actions";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatFileSize } from "@/lib/files";
 import { formatDate } from "@/lib/utils";
-
-async function getPreview(path: string) {
-  try {
-    const text = await readFile(path, "utf8");
-    return text.slice(0, 4000);
-  } catch {
-    return "暂无法预览该文件。";
-  }
-}
 
 export default async function AdminTasksPage() {
   await requireRole("admin");
@@ -37,16 +28,14 @@ export default async function AdminTasksPage() {
         </Card>
 
         <div className="grid gap-4">
-          {await Promise.all(tasks.map(async (task) => (
+          {tasks.map((task) => (
             <Card key={task.id}>
               <h2 className="text-xl font-bold text-slate-950">{task.title}</h2>
               <p className="mt-2 text-slate-600">{task.description}</p>
               <p className="mt-1 text-sm text-brand-700">奖励积分：{task.points}</p>
               <div className="mt-5 space-y-4">
                 {task.submissions.length === 0 ? <p className="text-sm text-slate-500">暂无提交</p> : null}
-                {await Promise.all(task.submissions.map(async (submission) => {
-                  const previewFile = submission.files.find((file) => file.previewable);
-                  const preview = previewFile ? await getPreview(previewFile.storagePath) : null;
+                {task.submissions.map((submission) => {
                   return (
                     <div key={submission.id} className="rounded-2xl bg-slate-50 p-4">
                       <div className="flex flex-wrap justify-between gap-3">
@@ -59,9 +48,14 @@ export default async function AdminTasksPage() {
                       <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{submission.content}</p>
                       {submission.githubUrl ? <p className="mt-2 text-sm text-slate-600">GitHub：{submission.githubUrl} {submission.githubEnabled ? "（选择写入/关联）" : ""}</p> : null}
                       {submission.files.map((file) => (
-                        <p key={file.id} className="mt-2 text-sm text-slate-500">附件：{file.originalName} · {(file.size / 1024).toFixed(1)} KB · {file.previewable ? "可预览" : "不可预览"}</p>
+                        <div key={file.id} className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-3 text-sm text-slate-500">
+                          <span>附件：{file.originalName} · {formatFileSize(file.size)} · {file.previewable ? "可预览" : "不可预览"}</span>
+                          <div className="flex gap-2">
+                            {file.previewable ? <a href={`/admin/files/${file.id}/preview`} className="font-semibold text-brand-700">独立预览</a> : null}
+                            <a href={`/api/files/${file.id}/download`} className="font-semibold text-slate-900">下载</a>
+                          </div>
+                        </div>
                       ))}
-                      {preview ? <pre className="mt-3 max-h-80 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">{preview}</pre> : null}
                       <form action={reviewSubmissionAction} className="mt-3 grid gap-2 md:grid-cols-[120px_1fr_auto]">
                         <input type="hidden" name="id" value={submission.id} />
                         <input name="score" type="number" placeholder="分数" className="rounded-xl border border-slate-200 px-3 py-2" />
@@ -70,10 +64,10 @@ export default async function AdminTasksPage() {
                       </form>
                     </div>
                   );
-                }))}
+                })}
               </div>
             </Card>
-          )))}
+          ))}
         </div>
       </div>
     </AdminShell>
