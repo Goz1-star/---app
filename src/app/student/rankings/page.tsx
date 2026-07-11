@@ -5,7 +5,16 @@ import { db } from "@/lib/db";
 
 export default async function StudentRankingsPage() {
   await requireRole("student");
-  const members = await db.memberProfile.findMany({ include: { user: true }, orderBy: { points: "desc" } });
+  const members = await db.memberProfile.findMany({
+    where: {
+      user: {
+        status: "active",
+        roles: { some: { role: { key: "student" } } },
+      },
+    },
+    include: { user: true },
+    orderBy: { points: "desc" },
+  });
 
   return (
     <StudentShell>

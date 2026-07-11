@@ -1,5 +1,6 @@
 "use server";
 
+import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -8,6 +9,58 @@ import { saveUploadFile } from "@/lib/files";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+function values(formData: FormData, key: string) {
+  return formData.getAll(key).map(String).filter(Boolean);
+}
+
+async function syncUserRoles(userId: string, roleKeys: string[]) {
+  const normalized = Array.from(new Set(roleKeys.filter((role) => ["admin", "student"].includes(role))));
+  if (!normalized.length) throw new Error("至少需要选择一个身份");
+
+  const roles = await db.role.findMany({ where: { key: { in: normalized } } });
+  await db.userRole.deleteMany({ where: { userId } });
+  await db.userRole.createMany({
+    data: roles.map((role) => ({ userId, roleId: role.id })),
+  });
+}
+
+async function ensureMemberProfile(userId: string, formData: FormData) {
+  await db.memberProfile.upsert({
+    where: { userId },
+    update: {
+      studentNo: value(formData, "studentNo") || null,
+      grade: value(formData, "grade") || null,
+      major: value(formData, "major") || "软件技术",
+      bio: value(formData, "bio") || null,
+    },
+    create: {
+      userId,
+      studentNo: value(formData, "studentNo") || null,
+      grade: value(formData, "grade") || null,
+      major: value(formData, "major") || "软件技术",
+      bio: value(formData, "bio") || null,
+      points: 0,
+    },
+  });
+}
+
+async function applyPointChange(input: { userId: string; points: number; reason: string; source: string }) {
+  await db.$transaction([
+    db.pointLedger.create({
+      data: {
+        userId: input.userId,
+        points: input.points,
+        reason: input.reason,
+        source: input.source,
+      },
+    }),
+    db.memberProfile.update({
+      where: { userId: input.userId },
+      data: { points: { increment: input.points } },
+    }),
+  ]);
 }
 
 function parseOptions(raw: string) {
@@ -32,6 +85,92 @@ function normalizeAnswer(type: string, raw: string) {
 function isAnswerCorrect(type: string, expected: string | null, actual: string) {
   if (!expected) return false;
   return normalizeAnswer(type, expected) === normalizeAnswer(type, actual);
+}
+
+export async function createMemberAction(formData: FormData) {
+  await requireRole("admin");
+  const phone = value(formData, "phone");
+  const password = value(formData, "password") || "123456";
+  const roleKeys = values(formData, "roles");
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const user = await db.user.create({
+    data: {
+      name: value(formData, "name"),
+      phone,
+      email: value(formData, "email") || null,
+      passwordHash,
+      status: "active",
+    },
+  });
+
+  await syncUserRoles(user.id, roleKeys);
+  await ensureMemberProfile(user.id, formData);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/members");
+  revalidatePath("/student/rankings");
+}
+
+export async function updateMemberAction(formData: FormData) {
+  await requireRole("admin");
+  const userId = value(formData, "userId");
+  const password = value(formData, "password");
+  const roleKeys = values(formData, "roles");
+
+  await db.user.update({
+    where: { id: userId },
+    data: {
+      name: value(formData, "name"),
+      phone: value(formData, "phone"),
+      email: value(formData, "email") || null,
+      ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+    },
+  });
+
+  await syncUserRoles(userId, roleKeys);
+  await ensureMemberProfile(userId, formData);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/members");
+  revalidatePath("/student/rankings");
+}
+
+export async function toggleMemberStatusAction(formData: FormData) {
+  await requireRole("admin");
+  await db.user.update({
+    where: { id: value(formData, "userId") },
+    data: { status: value(formData, "status") },
+  });
+  revalidatePath("/admin/members");
+}
+
+export async function adjustMemberPointsAction(formData: FormData) {
+  await requireRole("admin");
+  const amount = Math.abs(Number(value(formData, "amount") || 0));
+  const mode = value(formData, "mode");
+  const delta = mode === "deduct" ? -amount : amount;
+  const reason = value(formData, "reason");
+  if (!amount || !reason) return;
+
+  await db.memberProfile.upsert({
+    where: { userId: value(formData, "userId") },
+    update: {},
+    create: { userId: value(formData, "userId"), major: "软件技术", points: 0 },
+  });
+  await applyPointChange({
+    userId: value(formData, "userId"),
+    points: delta,
+    reason,
+    source: mode === "deduct" ? "manual_deduct" : "manual_reward",
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/members");
+  revalidatePath("/admin/points");
+  revalidatePath("/student");
+  revalidatePath("/student/points");
+  revalidatePath("/student/rankings");
 }
 
 export async function createMaterialAction(formData: FormData) {
@@ -187,10 +326,7 @@ export async function createCheckinAction(formData: FormData) {
       makeupReason: value(formData, "makeupReason") || null,
     },
   });
-  await db.pointLedger.create({
-    data: { userId: session.userId, points: 5, reason: "完成打卡", source: "checkin" },
-  });
-  await db.memberProfile.updateMany({ where: { userId: session.userId }, data: { points: { increment: 5 } } });
+  await applyPointChange({ userId: session.userId, points: 5, reason: "完成打卡", source: "checkin" });
   revalidatePath("/student/checkins");
   revalidatePath("/student/rankings");
 }

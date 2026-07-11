@@ -5,6 +5,7 @@ import { ButtonLink } from "@/components/ui";
 const adminLinks = [
   ["首页", "/admin"],
   ["成员", "/admin/members"],
+  ["积分", "/admin/points"],
   ["公告", "/admin/announcements"],
   ["课程/活动", "/admin/activities"],
   ["任务提交", "/admin/tasks"],
@@ -18,6 +19,7 @@ const studentLinks = [
   ["公告", "/student/announcements"],
   ["课程/活动", "/student/activities"],
   ["打卡", "/student/checkins"],
+  ["积分", "/student/points"],
   ["任务", "/student/tasks"],
   ["资料", "/student/materials"],
   ["小测试", "/student/quizzes"],
