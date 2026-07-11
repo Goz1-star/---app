@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/utils";
 export default async function StudentTasksPage() {
   const session = await requireRole("student");
   const tasks = await db.task.findMany({
+    where: { status: "published" },
     include: { submissions: { where: { userId: session.userId }, include: { files: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -24,6 +25,7 @@ export default async function StudentTasksPage() {
               <div>
                 <h2 className="text-xl font-bold text-slate-950">{task.title}</h2>
                 <p className="mt-2 text-slate-600">{task.description}</p>
+                <p className="mt-2 text-sm text-slate-500">截止时间：{formatDate(task.dueAt)}</p>
               </div>
               <span className="h-fit rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">{task.points} 积分</span>
             </div>

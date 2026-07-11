@@ -90,6 +90,7 @@ model Announcement {
   title     String
   content   String
   isPinned  Boolean  @default(false)
+  status    String   @default("published")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   authorId  String
@@ -154,6 +155,7 @@ model Task {
   description String
   dueAt       DateTime?
   points      Int              @default(0)
+  status      String           @default("published")
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   creatorId   String

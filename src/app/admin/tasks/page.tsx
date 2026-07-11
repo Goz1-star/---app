@@ -1,10 +1,15 @@
 import { AdminShell } from "@/components/shell";
 import { Card } from "@/components/ui";
-import { createTaskAction, reviewSubmissionAction } from "@/lib/actions";
+import { createTaskAction, reviewSubmissionAction, updateTaskAction } from "@/lib/actions";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatFileSize } from "@/lib/files";
 import { formatDate } from "@/lib/utils";
+
+const taskStatusMap: Record<string, string> = {
+  published: "可提交",
+  archived: "已归档",
+};
 
 export default async function AdminTasksPage() {
   await requireRole("admin");
@@ -23,6 +28,7 @@ export default async function AdminTasksPage() {
             <input name="title" placeholder="任务标题" className="rounded-2xl border border-slate-200 px-4 py-3" required />
             <textarea name="description" placeholder="任务说明" rows={4} className="rounded-2xl border border-slate-200 px-4 py-3" required />
             <input name="points" type="number" placeholder="奖励积分" className="rounded-2xl border border-slate-200 px-4 py-3" />
+            <input name="dueAt" type="datetime-local" className="rounded-2xl border border-slate-200 px-4 py-3" />
             <button className="rounded-2xl bg-brand-600 px-4 py-3 font-semibold text-white">创建</button>
           </form>
         </Card>
@@ -32,7 +38,19 @@ export default async function AdminTasksPage() {
             <Card key={task.id}>
               <h2 className="text-xl font-bold text-slate-950">{task.title}</h2>
               <p className="mt-2 text-slate-600">{task.description}</p>
-              <p className="mt-1 text-sm text-brand-700">奖励积分：{task.points}</p>
+              <p className="mt-1 text-sm text-brand-700">奖励积分：{task.points} · {taskStatusMap[task.status] ?? task.status} · 截止：{formatDate(task.dueAt)}</p>
+              <form action={updateTaskAction} className="mt-5 grid gap-3 rounded-2xl bg-slate-50 p-4">
+                <input type="hidden" name="id" value={task.id} />
+                <input name="title" defaultValue={task.title} className="rounded-xl border border-slate-200 px-3 py-2" required />
+                <textarea name="description" defaultValue={task.description} rows={3} className="rounded-xl border border-slate-200 px-3 py-2" required />
+                <input name="points" type="number" defaultValue={task.points} className="rounded-xl border border-slate-200 px-3 py-2" />
+                <input name="dueAt" type="datetime-local" defaultValue={task.dueAt?.toISOString().slice(0, 16)} className="rounded-xl border border-slate-200 px-3 py-2" />
+                <select name="status" defaultValue={task.status} className="rounded-xl border border-slate-200 px-3 py-2">
+                  <option value="published">可提交</option>
+                  <option value="archived">已归档</option>
+                </select>
+                <button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">保存任务</button>
+              </form>
               <div className="mt-5 space-y-4">
                 {task.submissions.length === 0 ? <p className="text-sm text-slate-500">暂无提交</p> : null}
                 {task.submissions.map((submission) => {

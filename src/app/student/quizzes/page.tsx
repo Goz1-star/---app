@@ -9,7 +9,7 @@ export default async function StudentQuizzesPage() {
   const quizzes = await db.quiz.findMany({
     include: {
       questions: true,
-      attempts: { where: { userId: session.userId }, orderBy: { createdAt: "desc" } },
+      attempts: { where: { userId: session.userId }, include: { answers: true }, orderBy: { createdAt: "desc" } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -31,7 +31,10 @@ export default async function StudentQuizzesPage() {
                 <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">{quiz.questions.length} 题</span>
               </div>
               {latestAttempt ? (
-                <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">已提交，最近得分：{latestAttempt.score ?? 0}</p>
+                <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  <p>已提交，最近得分：{latestAttempt.score ?? 0}</p>
+                  {latestAttempt.answers.some((answer) => answer.score === null) ? <p className="mt-1">部分简答题待管理员批改。</p> : null}
+                </div>
               ) : (
                 <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">尚未提交</p>
               )}

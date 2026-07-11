@@ -63,6 +63,10 @@ async function applyPointChange(input: { userId: string; points: number; reason:
   ]);
 }
 
+function optionalDate(raw: string) {
+  return raw ? new Date(raw) : null;
+}
+
 function parseOptions(raw: string) {
   return raw
     .split(/\r?\n/)
@@ -171,6 +175,83 @@ export async function adjustMemberPointsAction(formData: FormData) {
   revalidatePath("/student");
   revalidatePath("/student/points");
   revalidatePath("/student/rankings");
+}
+
+export async function updateAnnouncementAction(formData: FormData) {
+  await requireRole("admin");
+  await db.announcement.update({
+    where: { id: value(formData, "id") },
+    data: {
+      title: value(formData, "title"),
+      content: value(formData, "content"),
+      isPinned: formData.get("isPinned") === "on",
+    },
+  });
+  revalidatePath("/admin/announcements");
+  revalidatePath("/student/announcements");
+}
+
+export async function updateAnnouncementStatusAction(formData: FormData) {
+  await requireRole("admin");
+  await db.announcement.update({
+    where: { id: value(formData, "id") },
+    data: { status: value(formData, "status") },
+  });
+  revalidatePath("/admin/announcements");
+  revalidatePath("/student/announcements");
+}
+
+export async function updateActivityAction(formData: FormData) {
+  await requireRole("admin");
+  await db.activity.update({
+    where: { id: value(formData, "id") },
+    data: {
+      title: value(formData, "title"),
+      description: value(formData, "description"),
+      startAt: new Date(value(formData, "startAt") || Date.now()),
+      endAt: optionalDate(value(formData, "endAt")),
+      status: value(formData, "status") || "published",
+    },
+  });
+  revalidatePath("/admin/activities");
+  revalidatePath("/student/activities");
+}
+
+export async function updateTaskAction(formData: FormData) {
+  await requireRole("admin");
+  await db.task.update({
+    where: { id: value(formData, "id") },
+    data: {
+      title: value(formData, "title"),
+      description: value(formData, "description"),
+      dueAt: optionalDate(value(formData, "dueAt")),
+      points: Number(value(formData, "points") || 0),
+      status: value(formData, "status") || "published",
+    },
+  });
+  revalidatePath("/admin/tasks");
+  revalidatePath("/student/tasks");
+}
+
+async function recalculateQuizAttemptScore(attemptId: string) {
+  const answers = await db.quizAnswer.findMany({ where: { attemptId } });
+  const score = answers.reduce((sum, answer) => sum + (answer.score ?? 0), 0);
+  await db.quizAttempt.update({
+    where: { id: attemptId },
+    data: { score, status: answers.some((answer) => answer.score === null) ? "partially_graded" : "graded" },
+  });
+}
+
+export async function gradeQuizAnswerAction(formData: FormData) {
+  await requireRole("admin");
+  const answerId = value(formData, "answerId");
+  const answer = await db.quizAnswer.update({
+    where: { id: answerId },
+    data: { score: Number(value(formData, "score") || 0) },
+  });
+  await recalculateQuizAttemptScore(answer.attemptId);
+  revalidatePath("/admin/quizzes");
+  revalidatePath("/student/quizzes");
 }
 
 export async function createMaterialAction(formData: FormData) {
@@ -282,6 +363,7 @@ export async function createActivityAction(formData: FormData) {
       title: value(formData, "title"),
       description: value(formData, "description"),
       startAt: new Date(value(formData, "startAt") || Date.now()),
+      endAt: optionalDate(value(formData, "endAt")),
       creatorId: session.userId,
     },
   });
@@ -337,6 +419,7 @@ export async function createTaskAction(formData: FormData) {
     data: {
       title: value(formData, "title"),
       description: value(formData, "description"),
+      dueAt: optionalDate(value(formData, "dueAt")),
       points: Number(value(formData, "points") || 0),
       creatorId: session.userId,
     },

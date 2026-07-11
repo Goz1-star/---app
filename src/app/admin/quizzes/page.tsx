@@ -1,6 +1,6 @@
 import { AdminShell } from "@/components/shell";
 import { Card } from "@/components/ui";
-import { createQuizAction, createQuizQuestionAction } from "@/lib/actions";
+import { createQuizAction, createQuizQuestionAction, gradeQuizAnswerAction } from "@/lib/actions";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -16,7 +16,7 @@ export default async function AdminQuizzesPage() {
   const quizzes = await db.quiz.findMany({
     include: {
       questions: true,
-      attempts: { include: { user: true } },
+      attempts: { include: { user: true, answers: { include: { question: true } } } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -71,6 +71,34 @@ export default async function AdminQuizzesPage() {
                 {quiz.questions.map((question, index) => (
                   <div key={question.id} className="rounded-2xl border border-slate-100 p-3 text-sm text-slate-600">
                     <span className="font-semibold text-slate-950">{index + 1}. [{typeMap[question.type]}]</span> {question.title} · {question.points} 分
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <h3 className="font-semibold text-slate-900">提交与简答题批改</h3>
+                {quiz.attempts.length === 0 ? <p className="text-sm text-slate-500">暂无提交</p> : null}
+                {quiz.attempts.map((attempt) => (
+                  <div key={attempt.id} className="rounded-2xl bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">{attempt.user.name}</p>
+                        <p className="text-sm text-slate-500">状态：{attempt.status} · 总分：{attempt.score ?? 0}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                      {attempt.answers.filter((answer) => answer.question.type === "short").map((answer) => (
+                        <div key={answer.id} className="rounded-2xl bg-white p-3 text-sm text-slate-600">
+                          <p className="font-semibold text-slate-950">{answer.question.title}</p>
+                          <p className="mt-2 whitespace-pre-wrap">{answer.answer || "未填写答案"}</p>
+                          <form action={gradeQuizAnswerAction} className="mt-3 flex flex-wrap gap-2">
+                            <input type="hidden" name="answerId" value={answer.id} />
+                            <input name="score" type="number" min={0} max={answer.question.points} defaultValue={answer.score ?? 0} className="rounded-xl border border-slate-200 px-3 py-2" />
+                            <button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">保存分数</button>
+                          </form>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
