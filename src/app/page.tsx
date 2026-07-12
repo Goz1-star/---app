@@ -7,7 +7,7 @@ export default function HomePage() {
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
         <section>
           <p className="mb-4 inline-flex rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm">
-            软件技术专业学校工作室管理 App
+            无名小卒工坊管理 App
           </p>
           <h1 className="text-5xl font-black tracking-tight text-slate-950 md:text-7xl">无名小卒工坊</h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">

@@ -12,13 +12,6 @@ export function LoginPanel({ role, title, subtitle, error, sentPhone }: { role: 
           </p>
           <h1 className="text-5xl font-black tracking-tight text-slate-950">{title}</h1>
           <p className="mt-4 text-lg leading-8 text-slate-600">{subtitle}</p>
-          <div className="mt-6 rounded-2xl bg-white/70 p-4 text-sm text-slate-600">
-            <p className="font-semibold text-slate-900">测试账号</p>
-            <p>管理员：18800000001 / 123456</p>
-            <p>学员：18800000002 / 123456</p>
-            <p>双身份：18800000003 / 123456</p>
-            <p>模拟验证码：123456</p>
-          </div>
         </section>
 
         <Card className="space-y-6">
