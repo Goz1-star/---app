@@ -1,6 +1,6 @@
 # 无名小卒工坊 Web 管理系统
 
-> 面向软件技术专业学校工作室场景的成员学习与管理 Web App。
+> 面向学校工作室场景的成员学习与管理 Web App。
 
 项目仓库：<https://github.com/Goz1-star/---app.git/>
 
